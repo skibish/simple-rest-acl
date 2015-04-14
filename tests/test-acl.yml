@@ -3,3 +3,7 @@
   GET: [1,2]
   POST: all
   PUT: none
+
+/zombies:
+  roles: public
+  GET: all

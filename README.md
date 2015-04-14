@@ -4,6 +4,7 @@
 [![Build Status](https://travis-ci.org/skibish/simple-rest-acl.svg)](https://travis-ci.org/skibish/simple-rest-acl)
 [![Latest Stable Version](https://poser.pugx.org/skibish/simple-rest-acl/v/stable.svg)](https://packagist.org/packages/skibish/simple-rest-acl)
 [![Total Downloads](https://poser.pugx.org/skibish/simple-rest-acl/downloads.svg)](https://packagist.org/packages/skibish/simple-rest-acl)
+[![Coverage Status](https://coveralls.io/repos/skibish/simple-rest-acl/badge.svg)](https://coveralls.io/r/skibish/simple-rest-acl)
 [![License](https://poser.pugx.org/skibish/simple-rest-acl/license.svg)](https://packagist.org/packages/skibish/simple-rest-acl)
 
 ## How to install

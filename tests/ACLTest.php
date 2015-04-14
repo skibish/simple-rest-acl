@@ -40,6 +40,7 @@ class ACLTest extends \PHPUnit_Framework_TestCase {
 
         $this->assertTrue($acl->got($acl::METHOD_GET, '/users')->verify());
         $this->assertTrue($acl->got($acl::METHOD_POST, '/users')->verify());
+        $this->assertTrue($acl->got($acl::METHOD_GET, '/zombies')->verify());
     }
 
     public function testAclVerifiesFalse()
@@ -52,4 +53,12 @@ class ACLTest extends \PHPUnit_Framework_TestCase {
         $acl = new ACL(__DIR__.'/test-acl.yml', [4]);
         $this->assertFalse($acl->got($acl::METHOD_POST, '/users')->verify());
     }
+
+    public function testAclThrowsExceptionIfFileCantBeParsed()
+    {
+        $this->setExpectedException('\Skibish\SimpleRestAcl\Exceptions\AclException');
+
+        $acl = new ACL(__DIR__.'/test-bad.yml');
+    }
+
 }
