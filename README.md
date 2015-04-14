@@ -54,9 +54,3 @@ $acl->got('GET', '/humans')->verify(); // true or false
 ## Exceptions
 
 There is one exception to handle, it is ``` AclExcpetion ``` (captain obvious, anyone?). If something went wrong, it will be thrown. So, catch it.
-
-## Ready to rock
-
-There are already build tools to add it to your favorite framework. By this time, only for Slim as middleware. You are welcome to add new.
-
-Middleware can be found by namespace ``` Skibish\SimpleRestAcl\Providers\Slim\SimpleRestAclMiddleware ```
