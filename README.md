@@ -2,6 +2,9 @@
 > Simplest ACL build, ever.
 
 [![Build Status](https://travis-ci.org/skibish/simple-rest-acl.svg)](https://travis-ci.org/skibish/simple-rest-acl)
+[![Total Downloads](https://poser.pugx.org/transact-pro/gate/downloads.svg)](https://packagist.org/packages/transact-pro/gate)
+[![Latest Stable Version](https://poser.pugx.org/transact-pro/gate/v/stable.svg)](https://packagist.org/packages/transact-pro/gate)
+[![License](https://poser.pugx.org/transact-pro/gate/license.svg)](https://packagist.org/packages/transact-pro/gate)
 
 ## How to install
 
