@@ -1,0 +1,21 @@
+{
+  "name": "skibish/simple-rest-acl",
+  "description": "The simplest REST ACL, yet.",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Sergey Kibish",
+      "email": "sergey.kibish@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=5.4.0",
+    "symfony/yaml": "~2.6"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "4.6.*"
+  },
+  "autoload": {
+    "psr-4": {"Skibish\\SimpleRestAcl\\": "src/"}
+  }
+}

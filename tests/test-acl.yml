@@ -1,0 +1,5 @@
+/users:
+  roles: [1 , 2 , 3]
+  GET: [1,2]
+  POST: all
+  PUT: none
