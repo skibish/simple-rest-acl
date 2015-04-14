@@ -1,6 +1,8 @@
 # Simple REST ACL
 > Simplest ACL build, ever.
 
+[![Build Status](https://travis-ci.org/skibish/simple-rest-acl.svg)](https://travis-ci.org/skibish/simple-rest-acl)
+
 ## How to install
 
 Just run ``` composer require skibish/simple-rest-acl ```
