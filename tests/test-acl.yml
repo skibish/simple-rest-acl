@@ -7,3 +7,11 @@
 /zombies:
   roles: public
   GET: all
+
+/phantoms:
+  roles: notreal
+  GET: all
+
+/dragulas:
+  roles: public
+  GET: notreal

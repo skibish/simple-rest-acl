@@ -136,6 +136,8 @@ class ACL
             return true;
         }
 
+        $this->isArray($roles);
+
         return count(array_intersect($this->currentUserRoles, $roles)) > 0;
     }
 
@@ -163,6 +165,21 @@ class ACL
             return false;
         }
 
+        $this->isArray($roles);
+
         return count(array_intersect($this->currentUserRoles, $roles)) > 0;
+    }
+
+    /**
+     * Check if roles are in array
+     *
+     * @param $roles
+     * @throws AclException
+     */
+    private function isArray($roles)
+    {
+        if (!is_array($roles)) {
+            throw new AclException('Expected an array of roles, not a ' . json_encode($roles));
+        }
     }
 }

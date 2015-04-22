@@ -34,6 +34,24 @@ class ACLTest extends \PHPUnit_Framework_TestCase {
         $acl->got($acl::METHOD_DELETE, '/users')->verify();
     }
 
+    public function testAclThrowsExceptionIfResourceRolesIsNotArray()
+    {
+        $acl = new ACL(__DIR__.'/test-acl.yml', [1]);
+
+        $this->setExpectedException('\Skibish\SimpleRestAcl\Exceptions\AclException');
+
+        $acl->got($acl::METHOD_GET, '/phantoms')->verify();
+    }
+
+    public function testAclThrowsExceptionIfMethodRolesIsNotArray()
+    {
+        $acl = new ACL(__DIR__.'/test-acl.yml', [1]);
+
+        $this->setExpectedException('\Skibish\SimpleRestAcl\Exceptions\AclException');
+
+        $acl->got($acl::METHOD_GET, '/dragulas')->verify();
+    }
+
     public function testAclVerifiesTrue()
     {
         $acl = new ACL(__DIR__.'/test-acl.yml', [1]);
