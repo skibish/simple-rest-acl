@@ -74,6 +74,21 @@ class ACL
     private $method;
 
     /**
+     * Array of missing roles
+     * @var array
+     */
+    private $missingRoles;
+
+    /**
+     * Get missing roles
+     * @return string
+     */
+    public function getMissingRoles()
+    {
+        return $this->missingRoles;
+    }
+
+    /**
      * Constructor
      *
      * @param string $path - path to yml config file
@@ -114,7 +129,13 @@ class ACL
      */
     public function verify()
     {
-        return $this->hasRoleAccess() && $this->hasMethodAccess();
+        if ($this->hasRoleAccess() && $this->hasMethodAccess()) {
+            $this->missingRoles = [];
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -137,6 +158,8 @@ class ACL
         }
 
         $this->isArray($roles);
+
+        $this->collectMissingRoles($roles);
 
         return count(array_intersect($this->currentUserRoles, $roles)) > 0;
     }
@@ -167,11 +190,13 @@ class ACL
 
         $this->isArray($roles);
 
+        $this->collectMissingRoles($roles);
+
         return count(array_intersect($this->currentUserRoles, $roles)) > 0;
     }
 
     /**
-     * Check if roles are in array
+     * Check if roles are array
      *
      * @param $roles
      * @throws AclException
@@ -180,6 +205,21 @@ class ACL
     {
         if (!is_array($roles)) {
             throw new AclException('Expected an array of roles, not a ' . json_encode($roles));
+        }
+    }
+
+    /**
+     * Collect missing roles
+     *
+     * @param $roles
+     */
+    private function collectMissingRoles($roles)
+    {
+        $this->missingRoles = [];
+        foreach ($roles as $role) {
+            if (!in_array($role, $this->currentUserRoles)) {
+                $this->missingRoles[] = $role;
+            }
         }
     }
 }
