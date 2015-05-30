@@ -79,4 +79,25 @@ class ACLTest extends \PHPUnit_Framework_TestCase {
         $acl = new ACL(__DIR__.'/test-bad.yml');
     }
 
+    public function testGetMissingRoleOnResource()
+    {
+        $acl = new ACL(__DIR__.'/test-acl.yml', [4]);
+        $acl->got($acl::METHOD_GET, '/users')->verify();
+        $this->assertEquals($acl->getMissingRoles(), [1,2,3]);
+    }
+
+    public function testGetMissingRolesOnMethod()
+    {
+        $acl = new ACL(__DIR__.'/test-acl.yml', [3]);
+        $acl->got($acl::METHOD_GET, '/users')->verify();
+        $this->assertEquals($acl->getMissingRoles(), [1,2]);
+    }
+
+    public function testGetMissingRolesIsEmpty()
+    {
+        $acl = new ACL(__DIR__.'/test-acl.yml', [1]);
+        $acl->got($acl::METHOD_GET, '/users')->verify();
+        $this->assertEquals($acl->getMissingRoles(), []);
+    }
+
 }
