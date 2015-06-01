@@ -81,7 +81,8 @@ class ACL
 
     /**
      * Get missing roles
-     * @return string
+     *
+     * @return array
      */
     public function getMissingRoles()
     {
@@ -102,7 +103,7 @@ class ACL
         }
 
         try {
-            $this->config = YAML::parse($path);
+            $this->config = YAML::parse(file_get_contents($path));
         } catch (ParseException $e) {
             throw new AclException($e->getMessage());
         }
