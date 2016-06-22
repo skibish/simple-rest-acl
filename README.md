@@ -9,54 +9,133 @@
 
 ## How to install
 
-Just run ``` composer require skibish/simple-rest-acl ```
+Run `composer require skibish/simple-rest-acl`
 
-## Idea
+## Idea and motivation
 
-To understand, you need to know, a liitle bit, what is REST about.
+Configure ACL by routes and methods as simply as possible.
 
-Idea is simple (got ya!), you have recources, CRUD, user roles and you have such neat YAML file:
+## How to use it
 
-```yaml
+First, you will need to create `acl.yml` file. Which can look like this:
 
-/zombies:
-  roles: [1, 2, 3]
-  GET: all
-  POST: [1, 2]
- 
-/humans:
-  roles: public
-  GET: all
-  POST: none
-
+```yml
+/users:
+  roles: ['role1' ,'role2' ,'role3']
+  GET: ['role1' ,'role2']
+  POST: all
+  PUT: none
 ```
 
-Simple, isn't it?
-
-## Dive in (explanation)
-
-We have resource **zombies**. Access to this resource is given only to role 1, 2 and 3. Everyone else will be kicked off.
-- If we have **GET** request, we will accept it from users who have roles 1,2,3 (so, **all** roles).
-- If we have **POST** request, we will only give access to users with roles 1 and 2
-
-For **humans** there is another story.
-- **Everyone** can access this resource. Because it is **public**
-- **GET** request is opened to **all** and **none** has access to POST request
-
-Simple. Let's move on!
-
-## How it works
-
-In code it work like this:
+In your code you start ACL as follows:
 
 ```php
 
-$acl = new ACL('path/to/your/acl.yml', $userRoles);
+$availableListOfRolesToUser = ['role1' ,'role2' ,'role3'];
+$httpMethod = $_SERVER['REQUEST_METHOD'];
+$uri = $_SERVER['REQUEST_URI'];
 
-$acl->got('GET', '/humans')->verify(); // true or false
+$acl = new \Skibish\SimpleRestAcl\ACL(__DIR__ . '/config/acl.yml', new \Skibish\SimpleRestAcl\Validator($availableListOfRolesToUser));
 
+$acl->got($httpMethod, $uri)->verify();
 ```
 
-## Exceptions
+And you are ready to go!
 
-There is one exception to handle, it is ``` AclExcpetion ``` (captain obvious, anyone?). If something went wrong, it will be thrown. So, catch it.
+## acl.yml file configuration
+
+File has following possibilities:
+
+```yml
+/users:                   -- route as for resource or regex (see explanation below).
+  roles:                  -- array of roles available for current resource or 'public' string (mandatory).
+  type:                   -- 'resource' (default, see explanation below) or 'strict' string. If strict is set - only if route is matched it will check methods.
+  GET: ['role1' ,'role2'] -- method and array of roles that can access it
+  POST: all               -- or string, that all roles defined in 'roles' will apply for current method
+  PUT: none               -- or this route is not accessible with any role by current method
+  DELETE: ['role3'] 
+```
+
+Better way to understand thing is using examples. 
+
+## Examples
+
+### Example #1
+Assume, we have following configuration:
+```yml
+/photos:
+  roles: ['role1' ,'role2' ,'role3']
+  GET: ['role1' ,'role2']
+  POST: all
+  PUT: none
+```
+
+And we have request `GET /photos/12` and available role is `role1`. It will match, because default `type` is `resource`. If `type` is `resource` it will match following routes:
+- /photos
+- /photos/new
+- /photos/{id}
+- /photos/{id}/edit
+- /photos/{id}
+
+And in `GET` we specified array of two roles `role1` and `role2`. Available role is `role1` and it is in array. So, method `verify()` in this case will return `true`.
+
+### Example #2
+Assume, we have following configuration:
+```yml
+/strict/{route:\d+}:
+  type: strict
+  roles: [1, 2, 3]
+  GET: [1]
+```
+
+Behind the scenes ACL uses [nikic/FastRoute](http://github.com/nikic/FastRoute) to match the routes. Thus you can use regex in route definition. But in this case **don't forget** to set `type` to `strict`.
+
+In this case only routes that have digit after `/strict` part will match. If we pass `GET /strict/foo`, method `verify()` will return `false`. If `GET /strict/42` - it will be `true`.
+
+## Options
+
+Third parameter in `ACL` constructor is array of options. Currently there are two options:
+
+- `cacheFile` - path to cache file. Example: `__DIR__.'/cache/acl-cache.php'`. This configuration will cache your configuration. If you need to update cache, just delete the cache file.
+- `resourceRegex` - regex for `type` `resource`. By default regex is `[/{id:\d+|new}[/edit]]`. If you want it to match [RESTful Resource Controllers](https://laravel.com/docs/5.1/controllers#restful-resource-controllers), as example, overwrite this option with `[/{id:\d+|create}[/edit]]`.
+
+Code snippet:
+
+```php
+
+$availableListOfRolesToUser = ['role1' ,'role2' ,'role3'];
+$httpMethod = $_SERVER['REQUEST_METHOD'];
+$uri = $_SERVER['REQUEST_URI'];
+
+$acl = new \Skibish\SimpleRestAcl\ACL(__DIR__ . '/config/acl.yml', new \Skibish\SimpleRestAcl\Validator($availableListOfRolesToUser, [
+    'cacheFile'     => __DIR__ . '/cache/acl-cache.php',
+    'resourceRegex' => '[/{id:\d+|create}[/edit]]',
+]));
+
+$acl->got($httpMethod, $uri)->verify();
+```
+
+## Logging
+
+If you need to log something from this library, you can use `PSR-3` compatible loggers.
+
+```php
+
+$availableListOfRolesToUser = ['role1' ,'role2' ,'role3'];
+$httpMethod = $_SERVER['REQUEST_METHOD'];
+$uri = $_SERVER['REQUEST_URI'];
+
+$acl = new \Skibish\SimpleRestAcl\ACL(__DIR__ . '/config/acl.yml', new \Skibish\SimpleRestAcl\Validator($availableListOfRolesToUser));
+
+$acl->setLogger(new Logger());
+
+$acl->got($httpMethod, $uri)->verify();
+```
+
+## Missing roles
+
+If you need to know, what roles are missing, use `$acl->getMissingRoles()`. It will return array of missing roles.
+
+# Contribution
+
+If you see, that something can be improved, feel free to submit a pull request.
