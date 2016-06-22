@@ -4,6 +4,8 @@ namespace Skibish\SimpleRestAcl;
 
 use FastRoute\Dispatcher;
 use FastRoute\RouteCollector;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Skibish\SimpleRestAcl\Exceptions\AclException;
 use Symfony\Component\Yaml\Yaml;
 
@@ -60,6 +62,11 @@ class ACL
     private $validator;
 
     /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    /**
      * @var Dispatcher
      */
     private $dispatcher;
@@ -88,9 +95,25 @@ class ACL
      */
     private $routeInfo;
 
+    /**
+     * Get missing roles
+     * @return array
+     */
     public function getMissingRoles()
     {
         return $this->validator->getMissingRoles();
+    }
+
+    /**
+     * Logger that can be used with library
+     * @param LoggerInterface $logger
+     * @return $this
+     */
+    public function setLogger(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
+
+        return $this;
     }
 
     /**
@@ -104,6 +127,7 @@ class ACL
     public function __construct($path, Validator $validator, $options = [])
     {
         $this->validator = $validator;
+        $this->logger = new NullLogger();
 
         try {
             // check if resourceRegex is present
@@ -129,7 +153,11 @@ class ACL
 
             // if cache file option is present, then use cache.
             if (isset($options['cacheFile'])) {
+                $this->logger->debug("cacheFile option is set, checking for file.");
+
                 if (!file_exists($options['cacheFile'])) {
+                    $this->logger->debug("No file exist, try to read from {$options['cacheFile']}.");
+
                     $this->config = $this->readConfigurationFile($path);
                 }
 
@@ -139,6 +167,7 @@ class ACL
 
                 $this->dispatcher = \FastRoute\simpleDispatcher($buildRulesData);
             }
+            $this->logger->debug("ACL is ready to verify.");
         } catch (\Exception $e) {
             throw new AclException($e->getMessage());
         }
@@ -152,9 +181,9 @@ class ACL
      */
     public function got($method, $uri)
     {
-        $routeInfo = $this->dispatcher->dispatch($method, $uri);
+        $this->logger->debug("Try to dispatch $method $uri.");
 
-        $this->routeInfo = $routeInfo;
+        $this->routeInfo = $this->dispatcher->dispatch($method, $uri);;
         $this->method    = $method;
         $this->uri       = $uri;
 
@@ -166,11 +195,19 @@ class ACL
      */
     public function verify()
     {
+        $this->logger->info("Try to verify.");
+
         switch ($this->routeInfo[0]) {
             case Dispatcher::NOT_FOUND:
-                throw new AclException('Not found ACL rules for resource ' . $this->uri);
+                $message = "Not found ACL rules for resource $this->uri";
+
+                $this->logger->critical($message);
+                throw new AclException($message);
             case Dispatcher::METHOD_NOT_ALLOWED:
-                throw new AclException('Not found ACL rules for method ' . $this->method . ' of resource ' . $this->uri);
+                $message = "Not found ACL rules for method $this->method of resource $this->uri";
+
+                $this->logger->critical($message);
+                throw new AclException($message);
             case Dispatcher::FOUND:
                 $this->validator
                     ->setMap($this->routeInfo[1])
@@ -182,9 +219,11 @@ class ACL
         if ($this->validator->hasRoleAccess() && $this->validator->hasMethodAccess()) {
             $this->validator->clear();
 
+            $this->logger->info("Validation passed.");
             return true;
         }
 
+        $this->logger->info("Validation failed.");
         return false;
     }
 
