@@ -4,6 +4,18 @@
   POST: all
   PUT: none
 
+/photos:
+  roles: [1, 2, 3]
+  GET: [1,2]
+  POST: all
+  PUT: [1]
+  DELETE: all
+
+/strict/{route:\d+}:
+  type: strict
+  roles: [1,2,3]
+  GET: [1]
+
 /zombies:
   roles: public
   GET: all
