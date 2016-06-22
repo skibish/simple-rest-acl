@@ -2,8 +2,11 @@
 
 namespace Skibish\SimpleRestAcl;
 
+use FastRoute\Dispatcher;
+use FastRoute\RouteCollector;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Skibish\SimpleRestAcl\Exceptions\AclException;
-use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -13,22 +16,6 @@ use Symfony\Component\Yaml\Yaml;
  */
 class ACL
 {
-
-    /**
-     * @var string
-     */
-    const ROLE_PUBLIC = 'public';
-
-    /**
-     * @var string
-     */
-    const ACCESS_ALL = 'all';
-
-    /**
-     * @var string
-     */
-    const ACCESS_NONE = 'none';
-
     /**
      * @var string
      */
@@ -50,22 +37,51 @@ class ACL
     const METHOD_DELETE = 'DELETE';
 
     /**
+     * List of all available methods
+     * 
+     * @var array
+     */
+    private $availableMethods = [
+        self::METHOD_GET,
+        self::METHOD_POST,
+        self::METHOD_PUT,
+        self::METHOD_DELETE,
+    ];
+
+    /**
+     * Resource regex expression, that is added to the end (/photos has type resource, thus will be /photos[/{id:\d+|new}[/edit]])
+     * You can overwrite it, but BE CAREFUL
+     *
+     * @var string
+     */
+    private $resourceRegex = '[/{id:\d+|new}[/edit]]';
+
+    /**
+     * @var Validator
+     */
+    private $validator;
+
+    /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    /**
+     * @var Dispatcher
+     */
+    private $dispatcher;
+
+    /**
      * ACL configuration
      * @var array
      */
     private $config;
 
     /**
-     * List of available roles for current user
-     * @var array
-     */
-    private $currentUserRoles;
-
-    /**
      * Resource, example '/users'
      * @var string
      */
-    private $resource;
+    private $uri;
 
     /**
      * GET, POST, PUT, DELETE etc.
@@ -74,53 +90,102 @@ class ACL
     private $method;
 
     /**
-     * Array of missing roles
+     * Route information array
      * @var array
      */
-    private $missingRoles;
+    private $routeInfo;
 
     /**
      * Get missing roles
-     *
      * @return array
      */
     public function getMissingRoles()
     {
-        return $this->missingRoles;
+        return $this->validator->getMissingRoles();
+    }
+
+    /**
+     * Logger that can be used with library
+     * @param LoggerInterface $logger
+     * @return $this
+     */
+    public function setLogger(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
+
+        return $this;
     }
 
     /**
      * Constructor
      *
      * @param string $path - path to yml config file
-     * @param array $currentUserRoles - array of roles, example: [1, 2, 3]
+     * @param Validator $validator - validator object with available roles, example: [1, 2, 3]
+     * @param array $options - array of options. Currently available: cacheFile (path), resourceRegex
      * @throws AclException
      */
-    public function __construct($path, array $currentUserRoles = [])
+    public function __construct($path, Validator $validator, $options = [])
     {
-        if (@file_get_contents($path) === FALSE) {
-            throw new AclException('File for ACL was not found by path ' . $path);
-        }
+        $this->validator = $validator;
+        $this->logger = new NullLogger();
 
         try {
-            $this->config = YAML::parse(file_get_contents($path));
-        } catch (ParseException $e) {
+            // check if resourceRegex is present
+            if (isset($options['resourceRegex'])) {
+                $this->resourceRegex = $options['resourceRegex'];
+            }
+
+            // create anonymous function to build rules
+            $buildRulesData = function (RouteCollector $r) {
+                foreach ($this->config as $regex => $routeData) {
+                    $routePart = '';
+                    if ($this->validator->isTypeResource($routeData)) {
+                        $routePart = $this->resourceRegex;
+                    }
+
+                    foreach ($routeData as $method => $data) {
+                        if (in_array($method, $this->availableMethods)) {
+                            $r->addRoute($method, "$regex$routePart", [$regex => $routeData]);
+                        }
+                    }
+                }
+            };
+
+            // if cache file option is present, then use cache.
+            if (isset($options['cacheFile'])) {
+                $this->logger->debug("cacheFile option is set, checking for file.");
+
+                if (!file_exists($options['cacheFile'])) {
+                    $this->logger->debug("No file exist, try to read from {$options['cacheFile']}.");
+
+                    $this->config = $this->readConfigurationFile($path);
+                }
+
+                $this->dispatcher = \FastRoute\cachedDispatcher($buildRulesData, $options);
+            } else {
+                $this->config = $this->readConfigurationFile($path);
+
+                $this->dispatcher = \FastRoute\simpleDispatcher($buildRulesData);
+            }
+            $this->logger->debug("ACL is ready to verify.");
+        } catch (\Exception $e) {
             throw new AclException($e->getMessage());
         }
-
-        $this->currentUserRoles = $currentUserRoles;
     }
 
     /**
      * @param string $method - example: 'GET'
-     * @param string $resource - example: '/users'
-     *
+     * @param string $uri - example: '/users', '/some/{path}/[0-9]'
      * @return $this
+     * @throws AclException
      */
-    public function got($method, $resource)
+    public function got($method, $uri)
     {
-        $this->method   = $method;
-        $this->resource = $resource;
+        $this->logger->debug("Try to dispatch $method $uri.");
+
+        $this->routeInfo = $this->dispatcher->dispatch($method, $uri);;
+        $this->method    = $method;
+        $this->uri       = $uri;
 
         return $this;
     }
@@ -130,97 +195,51 @@ class ACL
      */
     public function verify()
     {
-        if ($this->hasRoleAccess() && $this->hasMethodAccess()) {
-            $this->missingRoles = [];
+        $this->logger->info("Try to verify.");
 
+        switch ($this->routeInfo[0]) {
+            case Dispatcher::NOT_FOUND:
+                $message = "Not found ACL rules for resource $this->uri";
+
+                $this->logger->critical($message);
+                throw new AclException($message);
+            case Dispatcher::METHOD_NOT_ALLOWED:
+                $message = "Not found ACL rules for method $this->method of resource $this->uri";
+
+                $this->logger->critical($message);
+                throw new AclException($message);
+            case Dispatcher::FOUND:
+                $this->validator
+                    ->setMap($this->routeInfo[1])
+                    ->setUri(array_keys($this->routeInfo[1])[0])
+                    ->setMethod($this->method);
+                break;
+        }
+
+        if ($this->validator->hasRoleAccess() && $this->validator->hasMethodAccess()) {
+            $this->validator->clear();
+
+            $this->logger->info("Validation passed.");
             return true;
         }
 
+        $this->logger->info("Validation failed.");
         return false;
     }
 
     /**
-     * Check if user have access to resource
+     * Read configuration and return array
      *
-     * @return bool
-     * @throws AclException - if resource not found in ACL configuration
-     */
-    private function hasRoleAccess()
-    {
-        if (!isset($this->config[$this->resource])) {
-            throw new AclException('Not found ACL rules for resource ' . $this->resource);
-        }
-
-        $roles = $this->config[$this->resource]['roles'];
-
-        if ($roles === self::ROLE_PUBLIC) {
-
-            return true;
-        }
-
-        $this->isArray($roles);
-
-        $this->collectMissingRoles($roles);
-
-        return count(array_intersect($this->currentUserRoles, $roles)) > 0;
-    }
-
-    /**
-     * Check if user have method access to resource
-     *
-     * @return bool
+     * @param string $path - read configuration file
+     * @return mixed
      * @throws AclException
      */
-    private function hasMethodAccess()
+    private function readConfigurationFile($path)
     {
-        if (!isset($this->config[$this->resource][$this->method])) {
-            throw new AclException('Not found ACL rules for method ' . $this->method . ' of resource ' . $this->resource);
+        if (@file_get_contents($path) === FALSE) {
+            throw new AclException('File for ACL was not found by path ' . $path);
         }
 
-        $roles = $this->config[$this->resource][$this->method];
-
-        if ($roles === self::ACCESS_ALL) {
-
-            return true;
-        }
-
-        if ($roles === self::ACCESS_NONE) {
-
-            return false;
-        }
-
-        $this->isArray($roles);
-
-        $this->collectMissingRoles($roles);
-
-        return count(array_intersect($this->currentUserRoles, $roles)) > 0;
-    }
-
-    /**
-     * Check if roles are array
-     *
-     * @param $roles
-     * @throws AclException
-     */
-    private function isArray($roles)
-    {
-        if (!is_array($roles)) {
-            throw new AclException('Expected an array of roles, not a ' . json_encode($roles));
-        }
-    }
-
-    /**
-     * Collect missing roles
-     *
-     * @param $roles
-     */
-    private function collectMissingRoles($roles)
-    {
-        $this->missingRoles = [];
-        foreach ($roles as $role) {
-            if (!in_array($role, $this->currentUserRoles)) {
-                $this->missingRoles[] = $role;
-            }
-        }
+        return Yaml::parse(file_get_contents($path));
     }
 }

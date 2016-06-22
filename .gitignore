@@ -1,3 +1,6 @@
 .idea/
 vendor/
 build/
+
+!tests/_data/.keep
+tests/_data
