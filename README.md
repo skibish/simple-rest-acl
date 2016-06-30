@@ -47,12 +47,12 @@ And you are ready to go!
 File has following possibilities:
 
 ```yml
-/users:                   -- route as for resource or regex (see explanation below).
-  roles:                  -- array of roles available for current resource or 'public' string (mandatory).
-  type:                   -- 'resource' (default, see explanation below) or 'strict' string. If strict is set - only if route is matched it will check methods.
-  GET: ['role1' ,'role2'] -- method and array of roles that can access it
-  POST: all               -- or string, that all roles defined in 'roles' will apply for current method
-  PUT: none               -- or this route is not accessible with any role by current method
+/users:                   # route as for resource or regex (see explanation below).
+  roles:                  # array of roles available for current resource or 'public' string (mandatory).
+  type:                   # 'resource' (default, see explanation below) or 'strict' string. If strict is set - only if route is matched it will check methods.
+  GET: ['role1' ,'role2'] # method and array of roles that can access it
+  POST: all               # or string, that all roles defined in 'roles' will apply for current method
+  PUT: none               # or this route is not accessible with any role by current method
   DELETE: ['role3'] 
 ```
 
